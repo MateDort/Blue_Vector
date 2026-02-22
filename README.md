@@ -6,9 +6,7 @@
 
 ## Demo — Shanghai → Los Angeles (10,435 km)
 
-![Blue Vector Route Demo](route_demo.png)
-
-> Route plotted on **real NOAA RTOFS ocean current data** (fetched live via OPeNDAP, 2026-02-22).
+<video src="route_animation.mp4" autoplay loop muted playsinline width="100%"></video>
 
 | Metric | Value |
 |--------|-------|
@@ -20,6 +18,10 @@
 | Mode | Combined (sail + motor steering) |
 
 The optimised route arcs north into the North Pacific Current (Kuroshio Extension), riding the westerly winds before curving back south to Los Angeles — the same arc used by real transpacific cargo ships.
+
+> **Real data:** On every run, Blue Vector fetches today's actual Pacific ocean currents live from [NOAA RTOFS](https://nomads.ncep.noaa.gov/) via OPeNDAP — no API key required. The current arrows in the animation are real measured u/v velocities from the ocean surface. The cache refreshes automatically every 12 hours so you always start with the latest snapshot.
+>
+> **Why only 24 hours?** NOAA RTOFS publishes one daily run covering the past 24 hours of hourly nowcast data. For this demo the simulation holds the final snapshot constant for the remainder of the 86-day voyage — the spatial pattern (Kuroshio, North Pacific Current, gyres) stays real, only the time evolution is frozen. Stitching 60+ consecutive daily RTOFS runs to get a full evolving forecast is straightforward but out of scope for a routing demo.
 
 ---
 
@@ -35,8 +37,9 @@ python main.py --mock favorable --out-plot route.png
 python main.py --mock favorable --compare
 
 # Real NOAA RTOFS ocean current data
-python main.py --download-only        # fetch and cache
-python main.py --out-plot route.png   # simulate
+python main.py --download-only           # fetch and cache
+python main.py --out-plot route.png      # simulate + static map
+python main.py --animate route.mp4       # simulate + sped-up animation
 ```
 
 ---
