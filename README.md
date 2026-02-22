@@ -180,22 +180,6 @@ On a 10,000 km trip, the ocean current and wind do most of the pushing. The moto
 
 ---
 
-## What's Real vs Mocked
-
-| Component | Status | Detail |
-|-----------|--------|--------|
-| **Routing algorithm** | ✅ Real | Receding-horizon optimizer, physics, energy model — pure math, nothing faked |
-| **Ocean currents** (default) | ✅ Real | Live NOAA RTOFS data fetched via OPeNDAP. Actual Pacific u/v velocities at ~90 km resolution, cached locally as NetCDF |
-| **Wind model** | ⚠️ Parametric | Trade winds + westerlies by latitude/season. Correct physics, not a live NWP forecast |
-| **`--mock` presets** | 🔶 Fake | Uniform constant current everywhere — for instant offline demos only. Explicitly opt-in |
-| **Current time horizon** | ⚠️ Limited | RTOFS provides 24 hours of hourly data per daily run. After hour 24 the simulation holds the last current snapshot frozen in space for the remainder of the voyage |
-
-**To run on real data:** `python main.py --out-plot route.png` (downloads and caches automatically)
-
-**To run offline:** `python main.py --mock favorable --out-plot route.png`
-
----
-
 ## Architecture
 
 ```
