@@ -1,0 +1,7 @@
+xarray
+pydap
+netCDF4
+numpy
+matplotlib
+scipy
+requests
