@@ -8,13 +8,15 @@
 
 ![Blue Vector Route Demo](route_demo.png)
 
+> Route plotted on **real NOAA RTOFS ocean current data** (fetched live via OPeNDAP, 2026-02-22).
+
 | Metric | Value |
 |--------|-------|
 | Route | Shanghai, China → Los Angeles, CA |
 | Distance (straight line) | 10,435 km |
-| Trip duration | 60.25 days |
-| Energy saved vs straight-line motor | **+85%** |
-| Sail fraction of displacement | 63.8% |
+| Trip duration | 86.5 days |
+| Energy saved vs straight-line motor | **+78.5%** |
+| Sail fraction of displacement | 76.8% |
 | Mode | Combined (sail + motor steering) |
 
 The optimised route arcs north into the North Pacific Current (Kuroshio Extension), riding the westerly winds before curving back south to Los Angeles — the same arc used by real transpacific cargo ships.
@@ -172,9 +174,25 @@ The computer steers into the +1 zones as much as possible.
 
 ---
 
-**Why does it save 85% energy?**
+**Why does it save ~78% energy?**
 
-On a 10,000 km trip, the ocean current and wind do most of the pushing. The motor is only used to *choose which lane to be in* — like a tiny rudder on a big sailboat. If you went in a straight line with just the motor, you'd use 6× more energy and take much longer.
+On a 10,000 km trip, the ocean current and wind do most of the pushing. The motor is only used to *choose which lane to be in* — like a tiny rudder on a big sailboat. If you went in a straight line with just the motor, you'd use ~5× more energy and take much longer.
+
+---
+
+## What's Real vs Mocked
+
+| Component | Status | Detail |
+|-----------|--------|--------|
+| **Routing algorithm** | ✅ Real | Receding-horizon optimizer, physics, energy model — pure math, nothing faked |
+| **Ocean currents** (default) | ✅ Real | Live NOAA RTOFS data fetched via OPeNDAP. Actual Pacific u/v velocities at ~90 km resolution, cached locally as NetCDF |
+| **Wind model** | ⚠️ Parametric | Trade winds + westerlies by latitude/season. Correct physics, not a live NWP forecast |
+| **`--mock` presets** | 🔶 Fake | Uniform constant current everywhere — for instant offline demos only. Explicitly opt-in |
+| **Current time horizon** | ⚠️ Limited | RTOFS provides 24 hours of hourly data per daily run. After hour 24 the simulation holds the last current snapshot frozen in space for the remainder of the voyage |
+
+**To run on real data:** `python main.py --out-plot route.png` (downloads and caches automatically)
+
+**To run offline:** `python main.py --mock favorable --out-plot route.png`
 
 ---
 
