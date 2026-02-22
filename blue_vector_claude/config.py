@@ -42,6 +42,9 @@ DISTANCE_TOLERANCE_KM: float = 50.0  # "arrived" if within this distance
 
 # ── Data / caching ────────────────────────────────────────────────────────────
 # (lat_min, lon_min, lat_max, lon_max)
-DEFAULT_BBOX: tuple = (25.0, -80.0, 45.0, -60.0)
+DEFAULT_BBOX: tuple = (18.0, 115.0, 58.0, 250.0)
+# Pacific bbox: lat 18–58°N, lon 115–250°E (extended convention, no dateline wrap).
+# Covers Shanghai (31.2°N, 121.5°E) → Los Angeles (34.1°N, 241.8°E) plus ±25° margin
+# for the northern arc through the North Pacific Current / Kuroshio Extension.
 NETCDF_CACHE_PATH: str = "data/currents_cache.nc"
 CACHE_MAX_AGE_HOURS: float = 12.0    # re-download if older than this

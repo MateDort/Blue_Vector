@@ -79,6 +79,13 @@ def _try_fetch_rtofs(
                 logger.warning("No grid points in bbox for run %s", run_date.date())
                 continue
 
+            # Subsample every 10th point (~0.83° ≈ 90 km).
+            # The routing algorithm needs ~50 km step resolution; 90 km grids
+            # are sufficient for current interpolation while keeping the
+            # OPeNDAP download to a few MB instead of hundreds of MB.
+            lat_idx = lat_idx[::10]
+            lon_idx = lon_idx[::10]
+
             ds_sub = ds.isel(
                 **{lat_name: lat_idx, lon_name: lon_idx}
             )[[u_name, v_name]]
@@ -96,6 +103,16 @@ def _try_fetch_rtofs(
             if rename:
                 ds_sub = ds_sub.rename(rename)
 
+            # Force download into memory now (pydap is lazy by default).
+            # This closes the remote connection cleanly and makes the
+            # dataset safe to save/reload as NetCDF.
+            logger.info(
+                "RTOFS run %s: downloading subset "
+                "(lat×lon = %d×%d, %d time steps)…",
+                run_date.date(), len(lat_idx), len(lon_idx),
+                len(ds_sub["time"]),
+            )
+            ds_sub = ds_sub.load()
             logger.info("RTOFS fetch successful for run %s", run_date.date())
             return ds_sub
 

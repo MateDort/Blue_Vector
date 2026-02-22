@@ -1,5 +1,6 @@
 xarray
 pydap
+jinja2
 netCDF4
 numpy
 matplotlib
