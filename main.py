@@ -21,7 +21,7 @@ from blue_vector_claude.mock_data import get_preset, PRESETS
 from blue_vector_claude.data_loader import open_cached, fetch_and_save
 from blue_vector_claude.wind_model import get_wind as parametric_wind
 from blue_vector_claude.simulator import simulate_route
-from blue_vector_claude.viz import plot_route, plot_comparison
+from blue_vector_claude.viz import plot_route, plot_comparison, animate_route
 from blue_vector_claude.vessel_model import distance_km
 
 
@@ -95,6 +95,8 @@ def main():
                         help="Save route map to this file")
     parser.add_argument("--compare", action="store_true",
                         help="Compare favorable vs unfavorable currents side-by-side")
+    parser.add_argument("--animate", type=str, default=None,
+                        help="Save sped-up route animation to this file (.mp4 or .gif)")
     args = parser.parse_args()
 
     # ── Download only ─────────────────────────────────────────────────────────
@@ -138,17 +140,46 @@ def main():
         f"Mode: {mode}  |  {days:.1f} days  |  Energy saved: {pct:+.1f}%\n"
         f"Sail fraction: {sf*100:.1f}%"
     )
-    plot_route(
-        trajectory=traj,
-        start_lat=args.start_lat,
-        start_lon=args.start_lon,
-        target_lat=args.target_lat,
-        target_lon=args.target_lon,
-        current_provider=provider if not args.mock else None,
-        plot_time=times[len(times) // 2] if times else None,
-        out_path=args.out_plot,
-        energy_info=energy_info,
-    )
+
+    if args.out_plot:
+        plot_route(
+            trajectory=traj,
+            start_lat=args.start_lat,
+            start_lon=args.start_lon,
+            target_lat=args.target_lat,
+            target_lon=args.target_lon,
+            current_provider=provider if not args.mock else None,
+            plot_time=times[len(times) // 2] if times else None,
+            out_path=args.out_plot,
+            energy_info=energy_info,
+        )
+
+    if args.animate:
+        animate_route(
+            trajectory=traj,
+            times=times,
+            start_lat=args.start_lat,
+            start_lon=args.start_lon,
+            target_lat=args.target_lat,
+            target_lon=args.target_lon,
+            percent_saved=pct,
+            total_days=days,
+            current_provider=provider if not args.mock else None,
+            out_path=args.animate,
+        )
+
+    if not args.out_plot and not args.animate:
+        plot_route(
+            trajectory=traj,
+            start_lat=args.start_lat,
+            start_lon=args.start_lon,
+            target_lat=args.target_lat,
+            target_lon=args.target_lon,
+            current_provider=provider if not args.mock else None,
+            plot_time=times[len(times) // 2] if times else None,
+            out_path=None,
+            energy_info=energy_info,
+        )
 
 
 if __name__ == "__main__":

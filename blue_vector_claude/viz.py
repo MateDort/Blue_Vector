@@ -9,12 +9,41 @@ Explain like you're 8:
 """
 
 import math
+import subprocess
+import sys
 from datetime import datetime
 from typing import List, Tuple, Optional
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+
+
+def _match_lon(ref_lon: float, anchor_lon: float) -> float:
+    """Shift ref_lon by ±360° increments until closest to anchor_lon."""
+    out = ref_lon
+    while out - anchor_lon > 180:
+        out -= 360
+    while anchor_lon - out > 180:
+        out += 360
+    return out
+
+
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance in km."""
+    R = 6_371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    a = (math.sin(math.radians(lat2 - lat1) / 2) ** 2
+         + math.cos(phi1) * math.cos(phi2)
+         * math.sin(math.radians(lon2 - lon1) / 2) ** 2)
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _open_file(path: str) -> None:
+    if sys.platform == "darwin":
+        subprocess.Popen(["open", path])
+    elif sys.platform.startswith("linux"):
+        subprocess.Popen(["xdg-open", path])
 
 
 def plot_route(
@@ -48,15 +77,6 @@ def plot_route(
 
     # Adjust start/target lon to the same extended-longitude convention
     # so markers land on the trajectory's axis range
-    def _match_lon(ref_lon: float, anchor_lon: float) -> float:
-        """Shift ref_lon by ±360° increments until closest to anchor_lon."""
-        out = ref_lon
-        while out - anchor_lon > 180:
-            out -= 360
-        while anchor_lon - out > 180:
-            out += 360
-        return out
-
     plot_start_lon = _match_lon(start_lon, lons[0]) if lons else start_lon
     plot_target_lon = _match_lon(target_lon, lons[-1]) if lons else target_lon
 
@@ -143,11 +163,7 @@ def plot_route(
     if out_path:
         plt.savefig(out_path, dpi=150, bbox_inches="tight")
         print(f"Route map saved → {out_path}")
-        import subprocess, sys
-        if sys.platform == "darwin":
-            subprocess.Popen(["open", out_path])
-        elif sys.platform.startswith("linux"):
-            subprocess.Popen(["xdg-open", out_path])
+        _open_file(out_path)
     else:
         plt.show()
 
@@ -203,12 +219,161 @@ def plot_comparison(
     if out_path:
         plt.savefig(out_path, dpi=150, bbox_inches="tight")
         print(f"Comparison plot saved → {out_path}")
-        import subprocess, sys
-        if sys.platform == "darwin":
-            subprocess.Popen(["open", out_path])
-        elif sys.platform.startswith("linux"):
-            subprocess.Popen(["xdg-open", out_path])
+        _open_file(out_path)
     else:
         plt.show()
 
+    plt.close(fig)
+
+
+def animate_route(
+    trajectory: List[Tuple[float, float]],
+    times: list,
+    start_lat: float,
+    start_lon: float,
+    target_lat: float,
+    target_lon: float,
+    percent_saved: float,
+    total_days: float,
+    current_provider=None,
+    out_path: str = "route_animation.mp4",
+    fps: int = 24,
+    title: str = "Blue Vector — Optimised Route",
+) -> None:
+    """
+    Render the pre-computed trajectory as a sped-up animation.
+
+    Each frame advances one 6-hour simulation step. At 24 fps a 347-step
+    trans-Pacific voyage plays back in ~14 seconds.
+
+    Saves as MP4 (requires ffmpeg) or GIF (Pillow fallback) depending on
+    the out_path extension.
+    """
+    from matplotlib.animation import FuncAnimation, PillowWriter
+    try:
+        from matplotlib.animation import FFMpegWriter
+        _ffmpeg_ok = True
+    except ImportError:
+        _ffmpeg_ok = False
+
+    import matplotlib.ticker as mticker
+
+    lats = [p[0] for p in trajectory]
+    raw_lons = [p[1] for p in trajectory]
+    lons = list(np.degrees(np.unwrap(np.radians(raw_lons))))
+
+    plot_start_lon = _match_lon(start_lon, lons[0]) if lons else start_lon
+    plot_target_lon = _match_lon(target_lon, lons[-1]) if lons else target_lon
+    n = len(trajectory)
+
+    # ── Figure setup ──────────────────────────────────────────────────────────
+    fig, ax = plt.subplots(figsize=(12, 7))
+    ax.set_facecolor("#d6eaf8")
+
+    # Fixed axis limits with padding
+    all_lons = lons + [plot_start_lon, plot_target_lon]
+    all_lats = lats + [start_lat, target_lat]
+    ax.set_xlim(min(all_lons) - 4, max(all_lons) + 4)
+    ax.set_ylim(min(all_lats) - 3, max(all_lats) + 3)
+
+    # ── Static: current quiver (first RTOFS snapshot) ─────────────────────────
+    if current_provider is not None:
+        ds = current_provider.get_dataset()
+        if ds is not None:
+            try:
+                snap = ds.isel(time=0)
+                u_grid = snap["u_velocity"].squeeze().values
+                v_grid = snap["v_velocity"].squeeze().values
+                grid_lats = ds["lat"].values
+                grid_lons = ds["lon"].values
+                sl = slice(None, None, max(1, len(grid_lats) // 15))
+                sl2 = slice(None, None, max(1, len(grid_lons) // 15))
+                lon_g, lat_g = np.meshgrid(grid_lons[sl2], grid_lats[sl])
+                ax.quiver(
+                    lon_g, lat_g,
+                    u_grid[sl, sl2], v_grid[sl, sl2],
+                    color="steelblue", alpha=0.25, scale=3,
+                    width=0.002, zorder=1,
+                )
+            except Exception:
+                pass
+
+    # ── Static: baseline, markers, ghost route ────────────────────────────────
+    ax.plot(
+        [plot_start_lon, plot_target_lon], [start_lat, target_lat],
+        "--", color="tomato", linewidth=1.5, alpha=0.5,
+        label="Straight-line baseline", zorder=2,
+    )
+    # Faint ghost of full route so viewer can see where boat is headed
+    ax.plot(lons, lats, "-", color="royalblue", linewidth=1,
+            alpha=0.12, zorder=3)
+    ax.scatter(plot_start_lon, start_lat, s=130, c="limegreen",
+               zorder=6, edgecolors="black", linewidths=0.8, label="Start (Shanghai)")
+    ax.scatter(plot_target_lon, target_lat, s=130, c="red",
+               zorder=6, edgecolors="black", linewidths=0.8, label="Target (Los Angeles)")
+
+    # ── Dynamic elements ──────────────────────────────────────────────────────
+    trail_line, = ax.plot([], [], "-", color="royalblue", linewidth=2.2, zorder=5)
+    boat_dot,   = ax.plot([], [], "o", color="white", markersize=10, zorder=7,
+                          markeredgecolor="#1a56cc", markeredgewidth=2.5)
+    stats_text = ax.text(
+        0.02, 0.03, "", transform=ax.transAxes,
+        fontsize=10, verticalalignment="bottom",
+        bbox=dict(boxstyle="round,pad=0.4", facecolor="white", alpha=0.88),
+        zorder=8,
+    )
+
+    # ── Formatting ────────────────────────────────────────────────────────────
+    def _lon_fmt(x, pos):
+        x_n = ((x + 180) % 360) - 180
+        if abs(x_n) < 0.001:
+            return "0°"
+        return f"{abs(x_n):.0f}°{'E' if x_n > 0 else 'W'}"
+
+    ax.xaxis.set_major_formatter(mticker.FuncFormatter(_lon_fmt))
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude (°)")
+    ax.set_title(title, fontsize=14, fontweight="bold")
+    ax.legend(loc="upper right", fontsize=9)
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+
+    t0 = times[0] if times else None
+
+    # ── Frame update ──────────────────────────────────────────────────────────
+    def update(i):
+        trail_line.set_data(lons[:i + 1], lats[:i + 1])
+        boat_dot.set_data([lons[i]], [lats[i]])
+
+        if t0 is not None:
+            elapsed = (times[i] - t0).total_seconds() / 86400
+            dist_rem = _haversine_km(lats[i], raw_lons[i], target_lat, target_lon)
+            date_str = times[i].strftime("%Y-%m-%d")
+
+            if i == n - 1:
+                stats_text.set_text(
+                    f"ARRIVED   ·   {elapsed:.1f} days   ·   {date_str}\n"
+                    f"Energy saved vs straight-line motor: {percent_saved:+.1f}%"
+                )
+            else:
+                stats_text.set_text(
+                    f"Day {elapsed:.1f}   ·   {dist_rem:,.0f} km remaining   ·   {date_str}"
+                )
+
+        return trail_line, boat_dot, stats_text
+
+    anim = FuncAnimation(fig, update, frames=n, interval=1000 / fps, blit=True)
+
+    # ── Save ──────────────────────────────────────────────────────────────────
+    use_mp4 = out_path.lower().endswith(".mp4") and _ffmpeg_ok
+    if use_mp4:
+        writer = FFMpegWriter(fps=fps, bitrate=1200,
+                              metadata={"title": "Blue Vector Route Animation"})
+    else:
+        writer = PillowWriter(fps=fps)
+
+    print(f"Rendering {n} frames at {fps} fps → {out_path} …")
+    anim.save(out_path, writer=writer, dpi=120)
+    print(f"Animation saved → {out_path}")
+    _open_file(out_path)
     plt.close(fig)
