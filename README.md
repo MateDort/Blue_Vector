@@ -25,6 +25,42 @@ The optimised route arcs north into the North Pacific Current (Kuroshio Extensio
 
 ---
 
+## Proof of Live Data
+
+Run `python showcase.py` to hit the NOAA endpoint live and see real Pacific current velocities in your terminal:
+
+![Showcase — Live NOAA fetch](showcase_screenshot.png)
+
+The Kuroshio Extension shows up at **157.6°E, 35°N** with **1.22 m/s (2.38 knots)** — exactly where and how strong it should be. Blue Vector's optimizer reads these same values to decide which lane to steer into.
+
+### Test it yourself with curl
+
+Fetch raw u/v velocities at 35°N across the Kuroshio Extension (150–180°E):
+
+```bash
+# URL-encode the OPeNDAP array slices: [time][lev][lat][lon]
+# lat index 1500 ≈ 35°N,  lon 911:30:1271 ≈ 150–180°E in steps of 2.5°
+curl "https://nomads.ncep.noaa.gov/dods/rtofs/rtofs_global$(date +%Y%m%d)/rtofs_glo_2ds_nowcast_hrly_prog.ascii?u_velocity%5B0%5D%5B0%5D%5B1500:1:1500%5D%5B911:30:1271%5D,v_velocity%5B0%5D%5B0%5D%5B1500:1:1500%5D%5B911:30:1271%5D"
+```
+
+What you get back — plain text, no auth:
+
+```
+u_velocity, [1][1][1][13]
+[0][0][0], -0.041, -0.271, 0.023, 0.884, -0.050, 0.284, 0.318, ...
+                                   ↑
+                             Kuroshio core: +0.884 m/s eastward at 157.6°E
+
+lat, [1]
+34.995
+lon, [13]
+150.07, 152.57, 155.07, 157.57, 160.07, 162.57, 165.07, ...
+```
+
+`1.26765E30` = fill value (land). Everything else is real measured ocean velocity in m/s.
+
+---
+
 ## How to Run
 
 ```bash
