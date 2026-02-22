@@ -143,6 +143,11 @@ def plot_route(
     if out_path:
         plt.savefig(out_path, dpi=150, bbox_inches="tight")
         print(f"Route map saved → {out_path}")
+        import subprocess, sys
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", out_path])
+        elif sys.platform.startswith("linux"):
+            subprocess.Popen(["xdg-open", out_path])
     else:
         plt.show()
 
@@ -198,6 +203,11 @@ def plot_comparison(
     if out_path:
         plt.savefig(out_path, dpi=150, bbox_inches="tight")
         print(f"Comparison plot saved → {out_path}")
+        import subprocess, sys
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", out_path])
+        elif sys.platform.startswith("linux"):
+            subprocess.Popen(["xdg-open", out_path])
     else:
         plt.show()
 
