@@ -6,7 +6,7 @@
 
 ## Demo — Shanghai → Los Angeles (10,435 km)
 
-<video src="route_animation.mp4" autoplay loop muted playsinline width="100%"></video>
+![Blue Vector Route Animation](route_animation.gif)
 
 | Metric | Value |
 |--------|-------|
